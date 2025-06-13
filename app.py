@@ -11,7 +11,7 @@ Cette application permet d'analyser et de nettoyer automatiquement des fichiers 
 Elle détecte les incohérences, signale les erreurs (valeurs hors seuils, formats invalides, etc.) et génère un fichier propre, prêt à être exploité.  
 Un rapport détaillé est également fourni pour faciliter les corrections ou validations manuelles.
 
-📄 [Consulter le document des tests effectués](https://docs.google.com/document/d/TON_ID_DE_DOCUMENT)
+📄 [Consulter le document des tests effectués](https://docs.google.com/document/d/1jp3abQcA0lIA6kP89i_Ds7JQWw7AlJaKjOc9X7CFzFI/edit?usp=sharing)
 """)
 
 fichiers = st.file_uploader("Téléversez vos fichiers CSV (1 à 4)", type=["csv"], accept_multiple_files=True)
