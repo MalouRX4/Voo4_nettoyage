@@ -166,7 +166,7 @@ def executer_tous_les_tests(df):
     all_tests.update(test_format(df))
     all_tests.update(test_dependances(df))
     all_tests['outliers_plaquettes'] = detecter_outliers(df, "Plaquettes", 150, 450)
-    all_tests['outliers_hemoglobine'] = detecter_outliers(df, "Hb", 7, 20)
+    all_tests['outliers_hemoglobine'] = detecter_outliers(df, "Hb", 50, 200)
     all_tests.update(test_integrite_medicale(df))
     return all_tests
 
