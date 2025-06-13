@@ -7,14 +7,11 @@ Original file is located at
     https://colab.research.google.com/drive/1Cv5gNcavjvUsVeGgPIwvmj9gz60rTSKj
 """
 
-# Commented out IPython magic to ensure Python compatibility.
-# %pip install pycountry
-
 import pandas as pd
 import datetime
 import pycountry
 
-# --------------- Fonctions principales ------------------
+# --------------- Fonctions de base ------------------
 
 def lire_fichiers(fichiers_streamlit):
     return [pd.read_csv(f, encoding="latin-1", sep=";") for f in fichiers_streamlit]
@@ -57,6 +54,8 @@ def convertir_colonnes_numeriques(df, colonnes):
             df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
 
+# --------------- Fonctions de tests ------------------
+
 def test_completude(df):
     erreurs = {}
     colonnes_obligatoires = ["Identifiant", "Date du diagnostic biologique", "Esp P falciparum"]
@@ -76,31 +75,24 @@ def test_completude(df):
     found_cols = [col for col in champs_essentiels if col in df.columns]
     if found_cols:
         erreurs["especes_toutes_absentes"] = df[df[found_cols].isna().all(axis=1)]
-
     return erreurs
 
 def test_dates_coherentes(df):
     erreurs = {}
     now = pd.Timestamp(datetime.date.today())
-
     def safe_to_datetime(serie):
         return pd.to_datetime(serie, errors='coerce')
-
     date_cols = ["Date des symptômes", "Date du diagnostic biologique", "Date des premiers symptômes de cet accès", "Date de retour"]
     for col in date_cols:
         if col in df.columns:
             df[col] = safe_to_datetime(df[col])
-
     if "Date des symptômes" in df.columns and "Date du diagnostic biologique" in df.columns:
         erreurs["symptomes_diagnostic"] = df[df["Date des symptômes"] > df["Date du diagnostic biologique"]]
-
     if "Date des premiers symptômes de cet accès" in df.columns and "Date des symptômes" in df.columns:
         erreurs["acces_symptomes"] = df[df["Date des premiers symptômes de cet accès"] > df["Date des symptômes"]]
-
     for col in date_cols:
         if col in df.columns:
             erreurs[f"{col}_futur"] = df[df[col].notna() & (df[col] > now)]
-
     return erreurs
 
 def test_coherence_logique(df):
