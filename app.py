@@ -13,20 +13,20 @@ from nettoyage_voo import traiter_fichiers_utilisateur
 
 st.set_page_config(page_title="Nettoyage VOO", layout="wide")
 
-st.title("🧪 Analyse et nettoyage de données VOO")
+st.title("Analyse et nettoyage de données VOO")
 fichiers = st.file_uploader("Téléversez vos fichiers CSV (1 à 4)", type=["csv"], accept_multiple_files=True)
 
 if fichiers:
     st.success(f"{len(fichiers)} fichier(s) chargé(s).")
 
-    if st.button("🚀 Lancer l'analyse"):
+    if st.button("Lancer l'analyse"):
         with st.spinner("Traitement en cours..."):
             base_nettoyee, erreurs, rapport_excel = traiter_fichiers_utilisateur(fichiers)
 
         st.subheader("✅ Fichier nettoyé : aperçu")
         st.dataframe(base_nettoyee.head())
 
-        st.download_button("📥 Télécharger les données nettoyées", base_nettoyee.to_csv(index=False).encode('utf-8'),
+        st.download_button("Télécharger les données nettoyées", base_nettoyee.to_csv(index=False).encode('utf-8'),
                            file_name="donnees_nettoyees.csv", mime="text/csv")
 
         with open(rapport_excel, "rb") as f:
