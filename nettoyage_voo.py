@@ -116,7 +116,7 @@ def test_validite_valeurs(df):
     if "Densité (%)" in df.columns:
         erreurs["parasitemie_pourcentage"] = df[(df["Densité (%)"] < 0) | (df["Densité (%)"] > 100)]
     if "Hb" in df.columns:
-        erreurs["hb_invalide"] = df[(df["Hb"] < 1) | (df["Hb"] > 20)]
+        erreurs["hb_invalide"] = df[(df["Hb"] < 50) | (df["Hb"] > 200)]
     if "Durée du séjour" in df.columns:
         erreurs["duree_negative"] = df[df["Durée du séjour"] < 0]
     return erreurs
