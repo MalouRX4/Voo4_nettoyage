@@ -7,6 +7,9 @@ Original file is located at
     https://colab.research.google.com/drive/1Cv5gNcavjvUsVeGgPIwvmj9gz60rTSKj
 """
 
+# Commented out IPython magic to ensure Python compatibility.
+# %pip install pycountry
+
 import pandas as pd
 import datetime
 import pycountry
@@ -54,6 +57,114 @@ def convertir_colonnes_numeriques(df, colonnes):
             df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
 
+def test_completude(df):
+    erreurs = {}
+    colonnes_obligatoires = ["Identifiant", "Date du diagnostic biologique", "Esp P falciparum"]
+    for col in colonnes_obligatoires:
+        if col in df.columns:
+            erreurs[f"manquant_{col}"] = df[df[col].isna()]
+
+    dates_critiques = ["Date des symptômes", "Date de retour", "Date du diagnostic biologique"]
+    for col in dates_critiques:
+        if col in df.columns:
+            erreurs[f"date_critique_manquante_{col}"] = df[df[col].isna()]
+
+    champs_essentiels = [
+        "Parasitémie", "Score de galsgow", "Esp P falciparum", "Esp P vivax",
+        "Esp P ovale", "Esp P malariae", "Esp Plasmodium spp", "Esp P knowlesi", "Esp Negative"
+    ]
+    found_cols = [col for col in champs_essentiels if col in df.columns]
+    if found_cols:
+        erreurs["especes_toutes_absentes"] = df[df[found_cols].isna().all(axis=1)]
+
+    return erreurs
+
+def test_dates_coherentes(df):
+    erreurs = {}
+    now = pd.Timestamp(datetime.date.today())
+
+    def safe_to_datetime(serie):
+        return pd.to_datetime(serie, errors='coerce')
+
+    date_cols = ["Date des symptômes", "Date du diagnostic biologique", "Date des premiers symptômes de cet accès", "Date de retour"]
+    for col in date_cols:
+        if col in df.columns:
+            df[col] = safe_to_datetime(df[col])
+
+    if "Date des symptômes" in df.columns and "Date du diagnostic biologique" in df.columns:
+        erreurs["symptomes_diagnostic"] = df[df["Date des symptômes"] > df["Date du diagnostic biologique"]]
+
+    if "Date des premiers symptômes de cet accès" in df.columns and "Date des symptômes" in df.columns:
+        erreurs["acces_symptomes"] = df[df["Date des premiers symptômes de cet accès"] > df["Date des symptômes"]]
+
+    for col in date_cols:
+        if col in df.columns:
+            erreurs[f"{col}_futur"] = df[df[col].notna() & (df[col] > now)]
+
+    return erreurs
+
+def test_coherence_logique(df):
+    erreurs = {}
+    if "Esp P falciparum" in df.columns and "Esp Negative" in df.columns:
+        erreurs["falciparum_et_negative"] = df[(df["Esp P falciparum"] == 1) & (df["Esp Negative"] == 1)]
+    if "Parasitémie > 4%" in df.columns and "Parasitémie" in df.columns:
+        erreurs["parasitemie_incoherente"] = df[(df["Parasitémie > 4%"] == 1) & (df["Parasitémie"] <= 4)]
+    if "Score de galsgow" in df.columns and "Troubles de la conscience" in df.columns:
+        erreurs["glasgow_et_conscience"] = df[(df["Score de galsgow"] <= 8) & (df["Troubles de la conscience"] != "Oui")]
+    if "Créatininémie > 265 µmol/l (OMS)" in df.columns and "Créatininémie" in df.columns:
+        erreurs["creat_incoherente"] = df[(df["Créatininémie > 265 µmol/l (OMS)"] == 1) & (df["Créatininémie"] <= 265)]
+    return erreurs
+
+def test_validite_valeurs(df):
+    erreurs = {}
+    if "Température" in df.columns:
+        erreurs["temperature_invalide"] = df[(df["Température"] < 30) | (df["Température"] > 45)]
+    if "Score de galsgow" in df.columns:
+        erreurs["glasgow_invalide"] = df[(df["Score de galsgow"] < 3) | (df["Score de galsgow"] > 15)]
+    if "Densité (%)" in df.columns:
+        erreurs["parasitemie_pourcentage"] = df[(df["Densité (%)"] < 0) | (df["Densité (%)"] > 100)]
+    if "Hb" in df.columns:
+        erreurs["hb_invalide"] = df[(df["Hb"] < 1) | (df["Hb"] > 20)]
+    if "Durée du séjour" in df.columns:
+        erreurs["duree_negative"] = df[df["Durée du séjour"] < 0]
+    return erreurs
+
+def test_format(df):
+    erreurs = {}
+    pays_valides = [country.name for country in pycountry.countries]
+    for col in ["Pays de résidence", "Pays visité 1", "Pays visité 2"]:
+        if col in df.columns:
+            erreurs[f"{col}_invalide"] = df[~df[col].isin(pays_valides)]
+    bool_cols = [col for col in df.columns if df[col].dropna().isin(["Oui", "Non"]).all()]
+    for col in bool_cols:
+        erreurs[f"{col}_bool_format"] = df[~df[col].isin(["Oui", "Non"])]
+    return erreurs
+
+def test_dependances(df):
+    erreurs = {}
+    if "Esp P vivax" in df.columns and "Ag Pv pLDH" in df.columns:
+        erreurs["vivax_sans_antigene"] = df[(df["Esp P vivax"] == 1) & (df["Ag Pv pLDH"] != 1)]
+    if "Test de diagnostic rapide (TDR)" in df.columns:
+        antigene_cols = ["Ag HRP-2", "Ag com pLDH", "Ag Pf pLDH", "Ag Pv pLDH"]
+        condition = df["Test de diagnostic rapide (TDR)"] == "Oui"
+        has_result = df[antigene_cols].isin([1]).any(axis=1)
+        erreurs["tdr_sans_resultat"] = df[condition & ~has_result]
+    return erreurs
+
+def test_integrite_medicale(df):
+    erreurs = {}
+    if "Coma avéré" in df.columns and "Score de galsgow" in df.columns:
+        erreurs["coma_score_haut"] = df[(df["Coma avéré"] == "Oui") & (df["Score de galsgow"] > 8)]
+    return erreurs
+
+def detecter_outliers(df, colonne, borne_inf, borne_sup):
+    erreurs = pd.DataFrame()
+    if colonne in df.columns:
+        df_clean = df[pd.to_numeric(df[colonne], errors='coerce').notna()].copy()
+        df_clean[colonne] = pd.to_numeric(df_clean[colonne], errors='coerce')
+        erreurs = df_clean[(df_clean[colonne] < borne_inf) | (df_clean[colonne] > borne_sup)]
+    return erreurs
+
 def executer_tous_les_tests(df):
     all_tests = {}
     all_tests.update(test_completude(df))
@@ -75,28 +186,14 @@ def generer_rapport_erreurs_excel(erreurs_dict, filename="rapport_erreurs_voo.xl
                 df_erreurs.to_excel(writer, sheet_name=sheet_name, index=False)
     return filename
 
-# --------------- Fonctions de test (copiées depuis ton script) ------------------
-
-# Toutes les fonctions test_completude, test_dates_coherentes, etc.
-# doivent être reprises ici sans changement majeur (je peux les ajouter dans le fichier si tu veux)
-
-# --------------- Fonction principale ------------------
-
 def traiter_fichiers_utilisateur(fichiers_streamlit):
     dfs = lire_fichiers(fichiers_streamlit)
-
-    # Nettoyage de chaque base avec complétude
     dfs_cleaned = [garder_lignes_plus_completes(df, ['Identifiant CNR']) for df in dfs]
-
     base = concatener_bases_par_identifiant(*dfs_cleaned)
     base = garder_lignes_les_plus_completes_par_id(base)
     base = supprimer_colonnes_dup(base)
-
-    colonnes_numeriques = ["Parasitémie", "Créatininémie", "Score de galsgow", "Température",
-                           "Hb", "Densité (%)", "Plaquettes", "Durée du séjour"]
+    colonnes_numeriques = ["Parasitémie", "Créatininémie", "Score de galsgow", "Température", "Hb", "Densité (%)", "Plaquettes", "Durée du séjour"]
     base = convertir_colonnes_numeriques(base, colonnes_numeriques)
-
     erreurs = executer_tous_les_tests(base)
     nom_rapport = generer_rapport_erreurs_excel(erreurs)
-
     return base, erreurs, nom_rapport
